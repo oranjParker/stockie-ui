@@ -1,6 +1,6 @@
 // ./context/AuthenticationState.js
 import { useState } from 'react';
-import { logout } from '../services/auth';
+import { logout } from '../services/authService';
 
 export const useAuthenticationState = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);

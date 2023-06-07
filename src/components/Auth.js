@@ -2,6 +2,12 @@
 import React, { useState } from 'react';
 import { useAuth } from "../context/AuthContext";
 
+const getCsrfToken = () => {
+  const cookies = document.cookie.split(";").map((cookie) => cookie.trim());
+  const csrfCookie = cookies.find((cookie) => cookie.startsWith("csrftoken="));
+  return csrfCookie ? csrfCookie.split("=")[1] : "";
+};
+
 const Auth = ({ type }) => {
   const { handleLogin, handleRegister, handleLogout, errorMessage, setErrorMessage, isLoggedIn, username } = useAuth();
 
@@ -28,9 +34,13 @@ const Auth = ({ type }) => {
     // Clear the error message whenever form is submitted
     setErrorMessage("");
     if (isLoginView) {
-      handleLogin(usernameInput, password);
+      const formData = new FormData(e.target);
+      formData.append('csrfmiddlewaretoken', getCsrfToken()); // Use the imported getCsrfToken function
+      handleLogin(usernameInput, password, formData);
     } else {
-      handleRegister(usernameInput, password, email, isCreator);
+      const formData = new FormData(e.target);
+      formData.append('csrfmiddlewaretoken', getCsrfToken()); // Use the imported getCsrfToken function
+      handleRegister(usernameInput, password, email, isCreator, formData);
     }
   };
   return (

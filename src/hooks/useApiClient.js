@@ -1,17 +1,25 @@
 // ./hooks/useApiClient.js
 
 import axios from 'axios';
-import { refreshToken } from '../services/auth';
+import { refreshToken } from '../services/authService';
 import { useAuth } from '../context/AuthContext';
 import { useAuthenticationState } from '../context/AuthenticationState';
+
+const getCsrfToken = () => {
+    const cookies = document.cookie.split(";").map((cookie) => cookie.trim());
+    const csrfCookie = cookies.find((cookie) => cookie.startsWith("csrftoken="));
+    return csrfCookie ? csrfCookie.split("=")[1] : "";
+  };
 
 export const createApiClient = () => {
   const apiClient = axios.create({
     baseURL: "http://localhost:8000",
     timeout: 5000,
+    withCredentials: true,
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
+      'X-CSRFToken': getCsrfToken(), // Include the CSRF token in the request headers
     },
   });
 
@@ -21,16 +29,6 @@ export const createApiClient = () => {
 const useApiClient = (apiClient) => {
   const { handleFailedAuthentication } = useAuthenticationState();
   
-  // define a function to set the token to the headers
-  const setTokenToHeaders = () => {
-    const token = localStorage.getItem('access');
-    if (token) {
-      apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    } else {
-      delete apiClient.defaults.headers.common['Authorization'];
-    }
-  };
-
   apiClient.interceptors.response.use(
     response => response,
     async function(error) {
@@ -38,26 +36,25 @@ const useApiClient = (apiClient) => {
       if (
         error.response.status === 401 &&
         error.response.statusText === "Unauthorized" &&
-        error.config.url !== '/api/token/refresh/' &&
-        error.config.url !== '/api/token/' &&
         !originalRequest._retry
       ) {
         originalRequest._retry = true;
-        const access_token = await refreshToken(apiClient);
-        
-        if (access_token !== null) {
-          localStorage.setItem("access", access_token);
-          originalRequest.headers.Authorization = 'Bearer ' + access_token;
+
+        try {
+          const newToken = await refreshToken(apiClient);
+          originalRequest.headers['Authorization'] = 'Bearer ' + newToken;
           return apiClient(originalRequest);
-        } else {
+        } catch (refreshError) {
           handleFailedAuthentication();
         }
+      } else if (error.response.status === 429) {
+        handleFailedAuthentication();
+        return Promise.reject(error);
       }
+
       return Promise.reject(error);
     }
   );
-
-  setTokenToHeaders();
 
   return apiClient;
 };

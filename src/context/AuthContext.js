@@ -1,6 +1,6 @@
 // ./context/AuthContext.js
 import React, { useState, useEffect, useContext } from "react";
-import { login, register, logout } from '../services/auth';
+import { login, register, logout } from '../services/authService';
 import { useAuthenticationState } from './AuthenticationState';
 import useApiClient, { createApiClient } from '../hooks/useApiClient';
 
@@ -10,27 +10,27 @@ const AuthProvider = ({ children }) => {
   const apiClient = createApiClient();
   useApiClient(apiClient);
 
-    const {
-      isLoggedIn, setIsLoggedIn,
-      username, setUsername,
-      errorMessage, setErrorMessage,
-      handleFailedAuthentication
-    } = useAuthenticationState();
+  const {
+    isLoggedIn, setIsLoggedIn,
+    username, setUsername,
+    errorMessage, setErrorMessage,
+    handleFailedAuthentication
+  } = useAuthenticationState();
+
+  const [csrfToken, setCsrfToken] = useState("");
 
   const handleAuth = async (authFunction, ...params) => {
     try {
       const response = await authFunction(apiClient, ...params);
       if (response.data) {
-        localStorage.setItem('access', response.data.access);
-        localStorage.setItem('refresh', response.data.refresh);
-        localStorage.setItem('username', params[0]);
         setIsLoggedIn(true);
         setUsername(params[0]);
         setErrorMessage("");
       }
     } catch (error) {
-      setErrorMessage(error);
-    }
+      const message = error.response ? error.response.data.detail : "An error occurred.";
+      setErrorMessage(message);
+    };
   };
 
   const handleLogin = async (username, password) => {
@@ -42,21 +42,30 @@ const AuthProvider = ({ children }) => {
   };
 
   const handleLogout = () => {
-    logout(apiClient);
     setIsLoggedIn(false);
     setUsername("");
+    apiClient.defaults.headers['Authorization'] = null;
   };
 
-    useEffect(() => {
-      const token = localStorage.getItem('access');
-      const user = localStorage.getItem('username');
-      
-      // if token exists in localstorage, user is assumed to be authenticated
-      if (token) {
-        setIsLoggedIn(true);
-        setUsername(user);
-      }
-    }, []);  // the empty array means this runs once on mount
+  useEffect(() => {
+      const checkAuthentication = async () => {
+          try {
+              const response = await apiClient.get('/api/check-authentication/');
+              if (response.data.authenticated) {
+                  setIsLoggedIn(true);
+                  setUsername(response.data.username);
+              } else {
+                  setIsLoggedIn(false);
+                  handleFailedAuthentication(apiClient);
+              }
+          } catch (error) {
+            handleFailedAuthentication();
+          }
+      };
+
+      checkAuthentication();
+  }, []); // the empty array means this runs once on mount
+
 
   const authContextValue = {
     isLoggedIn,

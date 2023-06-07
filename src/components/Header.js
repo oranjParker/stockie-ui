@@ -1,18 +1,27 @@
 // ./components/Header.js
 import React from "react";
 import { Avatar, AppBar, Toolbar, Typography, Button, Menu, MenuItem } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 import AuthMenu from "./AuthMenu";
 import { useAuth } from "../context/AuthContext";
 
-const MENU_ITEMS = ['Profile', 'Likes', 'Collections', 'Downloads', 'Settings'];
+const MENU_ITEMS = [
+  { name: 'Profile', path: '/profile' }, 
+  { name: 'Likes', path: '/likes' }, 
+  { name: 'Collections', path: '/collections' }, 
+  { name: 'Downloads', path: '/downloads' }, 
+  { name: 'Settings', path: '/settings' }
+];
 
 const Header = () => {
-  const { isLoggedIn, username, handleLogout, setErrorMessage } = useAuth();  // destructure setErrorMessage
+  const { isLoggedIn, username, handleLogout, setErrorMessage } = useAuth();
   const [authType, setAuthType] = React.useState(null);
   const [anchorEl, setAnchorEl] = React.useState(null);
+  const navigate = useNavigate();
+  
+
 
   const handleMenuClick = (event, type) => {
-    console.log('handleMenuClick called');
     setAuthType(type);
     setAnchorEl(event.currentTarget);
   };
@@ -32,8 +41,10 @@ const Header = () => {
     setProfileMenuAnchorEl(null);
   };
 
-console.log({ isLoggedIn, username });
-console.log({ anchorEl, authType, profileMenuAnchorEl });
+  const handleMenuItemClick = (path) => {
+    navigate(path);
+    handleProfileMenuClose();
+  };
 
   return (
     <div>
@@ -54,7 +65,7 @@ console.log({ anchorEl, authType, profileMenuAnchorEl });
                 onClose={handleProfileMenuClose}
               >
                 {MENU_ITEMS.map(item => (
-                  <MenuItem key={item} onClick={handleProfileMenuClose}>{item}</MenuItem>
+                  <MenuItem key={item.name} onClick={() => handleMenuItemClick(item.path)}>{item.name}</MenuItem>
                 ))}
               </Menu>
               <Button color="inherit" onClick={handleLogout}>
